@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CUKTECH 10 Ultra · 独立蓝牙控制台</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --surface: #131822;
+      --surface-2: #1a2130;
+      --border: #263044;
+      --text: #e7edf8;
+      --muted: #8a97b1;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a78bfa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+    .container { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 22px;
+    }
+    .title-group h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .status-bar { display: flex; align-items: center; gap: 10px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
+      border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+    .dot.ok { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .btn {
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      padding: 7px 14px; border-radius: 10px; font-size: 13px; cursor: pointer; transition: 0.15s;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: rgba(56,189,248,0.16); border-color: var(--accent); color: var(--accent); }
+    .btn.danger { background: rgba(239,68,68,0.14); border-color: var(--red); color: var(--red); }
+
+    .hero {
+      display: grid; grid-template-columns: 280px 1fr; gap: 20px;
+    }
+    @media (max-width: 820px) { .hero { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+    }
+    .total-power { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+    .total-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+    .total-value {
+      font-size: 56px; font-weight: 800; font-variant-numeric: tabular-nums;
+      background: linear-gradient(90deg, #38bdf8, #22c55e); -webkit-background-clip: text; color: transparent;
+      line-height: 1.1; margin: 8px 0;
+    }
+    .total-sub { font-size: 13px; color: var(--muted); }
+
+    .chart-wrap { display: flex; flex-direction: column; gap: 10px; }
+    .chart-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
+    svg#powerChart { width: 100%; height: 150px; background: var(--surface-2); border-radius: 12px; border: 1px solid var(--border); }
+
+    .ports-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    @media (max-width: 960px) { .ports-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 540px) { .ports-grid { grid-template-columns: 1fr; } }
+
+    .port-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px;
+      display: flex; flex-direction: column; gap: 12px; transition: border-color 0.2s;
+    }
+    .port-card.active { border-color: rgba(56,189,248,0.55); }
+    .port-card.off { opacity: 0.65; }
+    .port-head { display: flex; justify-content: space-between; align-items: center; }
+    .port-name { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600;
+      background: rgba(56,189,248,0.16); color: var(--accent);
+    }
+    .badge.idle { background: var(--surface-2); color: var(--muted); }
+    .watt-readout { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .watt-readout span { font-size: 14px; font-weight: 500; color: var(--muted); margin-left: 3px; }
+    .vi-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .timer-row { display: flex; gap: 6px; align-items: center; padding-top: 8px; border-top: 1px solid var(--border); }
+    .timer-row select {
+      flex: 1; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 8px; font-size: 12px;
+    }
+
+    .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0; background: #2c374c; border-radius: 24px; transition: 0.2s;
+    }
+    .slider:before {
+      content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%; transition: 0.2s;
+    }
+    input:checked + .slider { background: var(--green); }
+    input:checked + .slider:before { transform: translateX(18px); }
+
+    .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 820px) { .controls-grid { grid-template-columns: 1fr; } }
+    .section-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--text); }
+    .mode-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .mode-btn {
+      padding: 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border);
+      color: var(--text); text-align: left; cursor: pointer; transition: 0.15s;
+    }
+    .mode-btn strong { display: block; font-size: 14px; }
+    .mode-btn small { color: var(--muted); font-size: 12px; }
+    .mode-btn.selected { border-color: var(--accent); background: rgba(56,189,248,0.14); }
+
+    .setting-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-row select {
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 10px; font-size: 13px;
+    }
+    .proto-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .proto-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+    .proto-box h4 { font-size: 13px; margin-bottom: 8px; color: var(--accent); }
+    .proto-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .proto-chip {
+      padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+    }
+    .proto-chip.on { background: rgba(34,197,94,0.16); border-color: var(--green); color: var(--green); }
+    #toast {
+      position: fixed; bottom: 20px; right: 20px; background: var(--surface-2); border: 1px solid var(--accent);
+      color: var(--text); padding: 10px 16px; border-radius: 10px; font-size: 13px; display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title-group">
+        <h1>CUKTECH 10 Ultra · 独立蓝牙控制台</h1>
+        <div class="subtitle" id="deviceMeta">离线直连 BLE 0xFE95 · 无需米家 App</div>
+      </div>
+      <div class="status-bar">
+        <span class="pill"><span class="dot" id="connDot"></span><span id="connText">未连接</span></span>
+        <button class="btn" onclick="apiPost('/api/refresh')">刷新</button>
+        <button class="btn primary" onclick="apiPost('/api/connect')">重连</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="card total-power">
+        <div class="total-label">TOTAL OUTPUT</div>
+        <div class="total-value"><span id="totalPower">0.0</span><span style="font-size:24px">W</span></div>
+        <div class="total-sub" id="modeBadge">模式: -</div>
+      </div>
+      <div class="card chart-wrap">
+        <div class="chart-head">
+          <span>实时总功率曲线（最近 60 采样点）</span>
+          <span id="peakLabel">峰值: 0.0 W</span>
+        </div>
+        <svg id="powerChart" viewBox="0 0 600 150" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.45"/>
+              <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+            </linearGradient>
+          </defs>
+          <path id="chartArea" fill="url(#areaGrad)" d=""></path>
+          <path id="chartLine" fill="none" stroke="#38bdf8" stroke-width="2.5" d=""></path>
+        </svg>
+      </div>
+    </section>
+
+    <section class="ports-grid" id="portsGrid"></section>
+
+    <section class="controls-grid">
+      <div class="card">
+        <div class="section-title">功率分配场景模式（2.5）</div>
+        <div class="mode-grid">
+          <button class="mode-btn" data-mode="1" onclick="setMode(1)"><strong>AI 智能</strong><small>动态识别设备按需分配</small></button>
+          <button class="mode-btn" data-mode="2" onclick="setMode(2)"><strong>数码生态</strong><small>多设备协同快充</small></button>
+          <button class="mode-btn" data-mode="3" onclick="setMode(3)"><strong>极速单充</strong><small>优先保障主口满载输出</small></button>
+          <button class="mode-btn" data-mode="4" onclick="setMode(4)"><strong>均衡输出</strong><small>多口均衡功率</small></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">屏幕与特殊模式设置</div>
+        <div class="setting-row">
+          <span>熄屏时间（2.6）</span>
+          <select id="screenTimeout" onchange="apiPost('/api/screen', {screen_save_time: Number(this.value)})">
+            <option value="5">1 分钟</option>
+            <option value="1">5 分钟</option>
+            <option value="2">10 分钟</option>
+            <option value="3">30 分钟</option>
+            <option value="4">常亮</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <span>屏幕语言（2.13）</span>
+          <select id="screenLang" onchange="apiPost('/api/screen', {screen_language: Number(this.value)})">
+            <option value="1">中文</option>
+            <option value="0">English</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <span>USB-A 小电流模式（2.15，4h自动关）</span>
+          <label class="switch"><input type="checkbox" id="usbATrickle" onchange="apiPost('/api/usb-a-trickle', {enabled: this.checked})"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <span>空闲 5 分钟自动熄屏（2.19）</span>
+          <label class="switch"><input type="checkbox" id="idleOff" onchange="apiPost('/api/screen', {screenoff_while_idle: this.checked})"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <span>屏幕方向锁定（2.20）</span>
+          <label class="switch"><input type="checkbox" id="dirLock" onchange="apiPost('/api/screen', {screen_direction_lock: this.checked})"><span class="slider"></span></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="section-title" style="margin:0;">分端口快充协议开关（2.21 Spec v2）</div>
+        <button class="btn danger" onclick="confirmReset()">恢复默认设置（Action 2.1）</button>
+      </div>
+      <div class="proto-grid" id="protoGrid"></div>
+    </section>
+  </div>
+  <div id="toast"></div>
+
+  <script>
+    let currentState = null;
+    const history = [];
+    const MAX_POINTS = 60;
+    const PORT_ORDER = ["c1", "c2", "c3", "a"];
+    const PORT_LABELS = {c1: "USB-C1", c2: "USB-C2", c3: "USB-C3", a: "USB-A"};
+    const TIMER_PRESETS = [0, 30, 60, 120, 180, 240, 360];
+    const PROTO_GROUPS = [
+      {title: "USB-C1", items: [["c1_pd", "PD"], ["c1_pps", "PPS"], ["c1_ufcs", "UFCS"]]},
+      {title: "USB-C2", items: [["c2_pd", "PD"], ["c2_pps", "PPS"], ["c2_ufcs", "UFCS"]]},
+      {title: "USB-C3", items: [["c3_scp", "SCP"], ["c3_ufcs", "UFCS"]]},
+      {title: "USB-A",  items: [["a_scp", "SCP"], ["a_ufcs", "UFCS"]]},
+    ];
+    const portNodes = {};
+    const protoNodes = {};
+
+    function formatTimerLabel(minutes) {
+      if (minutes === 0) return "关闭定时";
+      return minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} 小时` : `${minutes} 分钟`;
+    }
+
+    function syncSelectValue(selectEl, value, {allowDynamicOption = false} = {}) {
+      if (selectEl.dataset.interacting === "1") return;
+      const strVal = String(value);
+      if (allowDynamicOption) {
+        const dynamicOpt = selectEl.querySelector('option[data-dynamic="1"]');
+        const numVal = Number(value);
+        if (numVal > 0 && !TIMER_PRESETS.includes(numVal)) {
+          const opt = dynamicOpt || document.createElement("option");
+          opt.dataset.dynamic = "1";
+          opt.value = strVal;
+          opt.textContent = formatTimerLabel(numVal);
+          if (!dynamicOpt) selectEl.appendChild(opt);
+        } else if (dynamicOpt) {
+          dynamicOpt.remove();
+        }
+      }
+      if (selectEl.value !== strVal) {
+        selectEl.value = strVal;
+      }
+    }
+
+    function bindSelectInteraction(selectEl, getCommittedValue, opts = {}) {
+      selectEl.addEventListener("pointerdown", () => {
+        selectEl.dataset.interacting = "1";
+      });
+      selectEl.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") {
+          delete selectEl.dataset.interacting;
+          if (currentState) syncSelectValue(selectEl, getCommittedValue(currentState), opts);
+        } else if (ev.key === "Enter") {
+          delete selectEl.dataset.interacting;
+        } else if (ev.key !== "Tab") {
+          selectEl.dataset.interacting = "1";
+        }
+      });
+      selectEl.addEventListener("change", () => {
+        delete selectEl.dataset.interacting;
+      });
+      selectEl.addEventListener("blur", () => {
+        delete selectEl.dataset.interacting;
+        if (currentState) syncSelectValue(selectEl, getCommittedValue(currentState), opts);
+      });
+    }
+
+    function ensurePortsGrid() {
+      if (Object.keys(portNodes).length === PORT_ORDER.length) return;
+      const grid = document.getElementById("portsGrid");
+      grid.textContent = "";
+      for (const k of PORT_ORDER) {
+        const card = document.createElement("div");
+        card.className = "port-card";
+        card.dataset.port = k;
+
+        const head = document.createElement("div");
+        head.className = "port-head";
+
+        const nameEl = document.createElement("div");
+        nameEl.className = "port-name";
+        nameEl.appendChild(document.createTextNode(`${PORT_LABELS[k]} `));
+        const badge = document.createElement("span");
+        badge.className = "badge idle";
+        nameEl.appendChild(badge);
+
+        const switchLabel = document.createElement("label");
+        switchLabel.className = "switch";
+        const toggle = document.createElement("input");
+        toggle.type = "checkbox";
+        toggle.addEventListener("change", () => togglePort(k, toggle.checked));
+        const slider = document.createElement("span");
+        slider.className = "slider";
+        switchLabel.append(toggle, slider);
+
+        head.append(nameEl, switchLabel);
+
+        const wattReadout = document.createElement("div");
+        wattReadout.className = "watt-readout";
+        const wattValue = document.createTextNode("0.0");
+        const wattUnit = document.createElement("span");
+        wattUnit.textContent = "W";
+        wattReadout.append(wattValue, wattUnit);
+
+        const viRow = document.createElement("div");
+        viRow.className = "vi-row";
+        const voltage = document.createElement("span");
+        const current = document.createElement("span");
+        viRow.append(voltage, current);
+
+        const timerRow = document.createElement("div");
+        timerRow.className = "timer-row";
+        const timerLabel = document.createElement("span");
+        timerLabel.style.fontSize = "12px";
+        timerLabel.style.color = "var(--muted)";
+        timerLabel.textContent = "定时";
+        const timerSelect = document.createElement("select");
+        timerSelect.dataset.portTimer = k;
+        for (const m of TIMER_PRESETS) {
+          const opt = document.createElement("option");
+          opt.value = String(m);
+          opt.textContent = formatTimerLabel(m);
+          timerSelect.appendChild(opt);
+        }
+        bindSelectInteraction(
+          timerSelect,
+          (st) => {
+            const p = st.ports && st.ports[k];
+            return p && p.delay_enabled ? p.delay_minutes : 0;
+          },
+          {allowDynamicOption: true}
+        );
+        timerSelect.addEventListener("change", () => setTimer(k, timerSelect.value));
+        timerRow.append(timerLabel, timerSelect);
+
+        card.append(head, wattReadout, viRow, timerRow);
+        grid.appendChild(card);
+
+        portNodes[k] = {card, badge, toggle, wattValue, voltage, current, timerSelect};
+      }
+    }
+
+    function ensureProtoGrid() {
+      if (Object.keys(protoNodes).length > 0) return;
+      const grid = document.getElementById("protoGrid");
+      grid.textContent = "";
+      for (const g of PROTO_GROUPS) {
+        const box = document.createElement("div");
+        box.className = "proto-box";
+        const heading = document.createElement("h4");
+        heading.textContent = g.title;
+        const tags = document.createElement("div");
+        tags.className = "proto-tags";
+        for (const [field, label] of g.items) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "proto-chip";
+          btn.dataset.protoField = field;
+          btn.textContent = label;
+          btn.addEventListener("click", () => toggleProtoV2(field));
+          tags.appendChild(btn);
+          protoNodes[field] = btn;
+        }
+        box.append(heading, tags);
+        grid.appendChild(box);
+      }
+    }
+
+    function toast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => el.style.display = "none", 2600);
+    }
+
+    async function apiPost(url, body = {}) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "请求失败");
+        renderState(data);
+        return data;
+      } catch (err) {
+        toast("操作失败: " + err.message);
+      }
+    }
+
+    function setMode(m) { apiPost("/api/mode", {mode: m}); }
+    function togglePort(p, enabled) { apiPost("/api/port", {port: p, enabled}); }
+    function setTimer(p, mins) { apiPost("/api/timer", {port: p, minutes: Number(mins)}); }
+
+    function toggleProtoV2(field) {
+      if (!currentState) return;
+      const next = {...currentState.protocol_v2};
+      next[field] = !next[field];
+      apiPost("/api/protocol/v2", next);
+    }
+
+    function confirmReset() {
+      if (confirm("确定要发送 Action 2.1 恢复充电器全部默认设置吗？")) {
+        apiPost("/api/reset").then(() => toast("已恢复默认设置"));
+      }
+    }
+
+    function updateChart(totalW) {
+      history.push(totalW);
+      if (history.length > MAX_POINTS) history.shift();
+      const maxW = Math.max(20, ...history, 120);
+      const peak = Math.max(...history, 0);
+      document.getElementById("peakLabel").textContent = `峰值: ${peak.toFixed(1)} W`;
+
+      if (history.length < 2) return;
+      const w = 600, h = 150, pad = 12;
+      const pts = history.map((v, i) => {
+        const x = (i / (MAX_POINTS - 1)) * w;
+        const y = h - pad - (v / maxW) * (h - pad * 2);
+        return [x.toFixed(1), y.toFixed(1)];
+      });
+      const line = "M " + pts.map(p => p.join(" ")).join(" L ");
+      const area = `${line} L ${pts[pts.length - 1][0]} ${h} L ${pts[0][0]} ${h} Z`;
+      document.getElementById("chartLine").setAttribute("d", line);
+      document.getElementById("chartArea").setAttribute("d", area);
+    }
+
+    function renderState(s) {
+      currentState = s;
+      const dot = document.getElementById("connDot");
+      const connText = document.getElementById("connText");
+      dot.className = "dot" + (s.connected ? " ok" : "");
+      connText.textContent = s.connected ? (s.mock_mode ? "已连接 (MOCK)" : "BLE 已连接") : "未连接";
+
+      document.getElementById("deviceMeta").textContent =
+        `${s.manufacturer} · ${s.model} · FW ${s.firmware_revision || "N/A"} · SN ${s.serial_number || "-"}`;
+      document.getElementById("totalPower").textContent = Number(s.total_power_w || 0).toFixed(1);
+      document.getElementById("modeBadge").textContent = `当前模式: ${s.scene_mode_label || s.scene_mode}`;
+
+      updateChart(Number(s.total_power_w || 0));
+
+      document.querySelectorAll(".mode-btn").forEach(btn => {
+        btn.classList.toggle("selected", Number(btn.dataset.mode) === s.scene_mode);
+      });
+
+      syncSelectValue(document.getElementById("screenTimeout"), s.screen_save_time);
+      syncSelectValue(document.getElementById("screenLang"), s.screen_language);
+      document.getElementById("usbATrickle").checked = Boolean(s.usb_a_always_on);
+      document.getElementById("idleOff").checked = Boolean(s.screenoff_while_idle);
+      document.getElementById("dirLock").checked = Boolean(s.screen_direction_lock);
+
+      ensurePortsGrid();
+      for (const k of PORT_ORDER) {
+        const p = s.ports[k];
+        const nodes = portNodes[k];
+        const active = p.power_w > 0 || p.status === 1 || p.status === 17;
+        const protoText = p.protocol_name && p.protocol_name !== "NONE"
+          ? `${p.protocol_name}${p.protocol_power_w ? " " + p.protocol_power_w + "W" : ""}`
+          : (p.enabled ? "待机" : "已关闭");
+        const curTimer = p.delay_enabled ? p.delay_minutes : 0;
+
+        nodes.card.classList.toggle("active", active);
+        nodes.card.classList.toggle("off", !p.enabled);
+        nodes.badge.classList.toggle("idle", !active);
+        nodes.badge.textContent = protoText;
+        if (nodes.toggle.checked !== Boolean(p.enabled)) {
+          nodes.toggle.checked = Boolean(p.enabled);
+        }
+        nodes.wattValue.nodeValue = Number(p.power_w).toFixed(1);
+        nodes.voltage.textContent = `电压: ${Number(p.voltage_v).toFixed(1)} V`;
+        nodes.current.textContent = `电流: ${Number(p.current_a).toFixed(1)} A`;
+        syncSelectValue(nodes.timerSelect, curTimer, {allowDynamicOption: true});
+      }
+
+      ensureProtoGrid();
+      const pv2 = s.protocol_v2 || {};
+      for (const [field, btn] of Object.entries(protoNodes)) {
+        btn.classList.toggle("on", Boolean(pv2[field]));
+      }
+    }
+
+    function connectWS() {
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      const ws = new WebSocket(`${proto}//${location.host}/ws`);
+      ws.onmessage = (ev) => renderState(JSON.parse(ev.data));
+      ws.onclose = () => setTimeout(connectWS, 2000);
+    }
+
+    bindSelectInteraction(document.getElementById("screenTimeout"), (st) => st.screen_save_time);
+    bindSelectInteraction(document.getElementById("screenLang"), (st) => st.screen_language);
+    ensurePortsGrid();
+    ensureProtoGrid();
+    fetch("/api/state").then(r => r.json()).then(renderState).catch(() => {});
+    connectWS();
+  </script>
+</body>
+</html>

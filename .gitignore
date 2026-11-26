@@ -1,0 +1,19 @@
+# Local scratch workspace & tool state
+analysis/
+.omo/
+
+# Python environments & caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Local credentials & user configs
+config.json
+.env
+*.secret
+*.log
+.DS_Store
