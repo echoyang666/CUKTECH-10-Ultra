@@ -8,6 +8,8 @@
 - **双交互前端**：Rich 终端 CLI（支持实时 `watch`）+ 零外部 CDN 的本地 Web 实时功率仪表盘。
 - **完整协议文档 & Python SDK**：底层实现 MiBLE `0xFE95` 分包、Standard Auth（HKDF-SHA256 + AES-128-CCM）与 MIoT-BLE Spec v2，详见 [docs/PROTOCOL.md](docs/PROTOCOL.md)。
 
+![CUKTECH 10 Ultra 本地 Web 控制台预览](docs/preview.png)
+
 ---
 
 ## 支持设备与运行环境
@@ -39,7 +41,8 @@
 │   ├── web.py            # FastAPI + WebSocket 本地后端
 │   └── static/index.html # 零依赖本地 Web 实时仪表盘
 ├── docs/
-│   └── PROTOCOL.md       # 完整 BLE 通信协议技术文档
+│   ├── PROTOCOL.md       # 完整 BLE 通信协议技术文档
+│   └── preview.png       # 本地 Web 控制台界面预览
 ├── tests/                # 单元测试与端到端协议测试
 ├── pyproject.toml
 └── LICENSE
